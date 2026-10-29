@@ -24,7 +24,7 @@ import fabric from "@/assets/fabric.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "RIDOZ — Everyday Comfort Innerwear for Men & Women" },
+      { title: "Ridoz Style" },
       { name: "description", content: "Seamless, breathable innerwear by RIDOZ. Bras, briefs, boxers, panties and vests made for all-day comfort." },
       { property: "og:title", content: "RIDOZ — Everyday Comfort Innerwear" },
       { property: "og:description", content: "Seamless support and all-day comfort. Shop men's and women's innerwear." },
