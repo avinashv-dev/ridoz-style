@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState, type ReactNode, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type MouseEvent } from "react";
 import {
   motion,
   AnimatePresence,
@@ -13,7 +13,7 @@ import {
   useVelocity,
   type Variants,
 } from "framer-motion";
-import { Check, Phone, Menu, X, ArrowUpRight, Star, Plus, Instagram, Facebook, Youtube, Wind, Feather, ShieldCheck } from "lucide-react";
+import { Check, Minus, ShoppingBag, Trash2, Phone, Menu, X, ArrowUpRight, Star, Plus, Instagram, Facebook, Youtube, Wind, Feather, ShieldCheck } from "lucide-react";
 import { Magnet } from "@/components/ui/magnetic";
 import { StaggerTestimonials } from "@/components/ui/stagger-testimonials";
 import { RandomLetterSwap } from "@/components/ui/random-letter-swap";
@@ -99,7 +99,7 @@ function ScrollProgress() {
   return <motion.div aria-hidden style={{ scaleX }} className="fixed inset-x-0 top-0 z-[60] h-0.5 origin-left bg-gold" />;
 }
 
-function Header({ cart }: { cart: number }) {
+function Header({ cart, onOpenBag }: { cart: number; onOpenBag: () => void }) {
   const [open, setOpen] = useState(false);
   const links = ["Drop", "Shop", "Collections", "Reviews", "Contact"];
   return (
@@ -124,9 +124,12 @@ function Header({ cart }: { cart: number }) {
           ))}
         </nav>
         <div className="flex items-center gap-2">
-          <motion.span key={cart} initial={{ scale: 1.25 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 14 }} aria-live="polite" className="inline-flex min-h-11 items-center rounded-full bg-muted px-4 text-xs font-semibold tracking-wide">
-            BAG · {cart}
-          </motion.span>
+          <Magnet strength={0.3}>
+            <motion.button whileTap={{ scale: 0.93 }} onClick={onOpenBag} aria-label={`Open bag, ${cart} ${cart === 1 ? "item" : "items"}`} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-muted px-4 text-xs font-semibold tracking-wide transition-colors duration-200 hover:bg-accent">
+              <ShoppingBag aria-hidden className="h-4 w-4" />
+              <motion.span key={cart} initial={{ scale: 1.5, y: -4 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 500, damping: 14 }} className="inline-block min-w-3 text-center">{cart}</motion.span>
+            </motion.button>
+          </Magnet>
           <Magnet className="hidden sm:inline-flex" strength={0.25}>
             <a href={TEL} className="btn-sweep inline-flex min-h-11 items-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors duration-300 hover:text-accent-foreground">{PHONE}</a>
           </Magnet>
@@ -147,7 +150,7 @@ function Header({ cart }: { cart: number }) {
   );
 }
 
-function Hero({ onAdd }: { onAdd: () => void }) {
+function Hero({ onAdd }: { onAdd: (p: P) => void }) {
   const [i, setI] = useState(0);
   const p = products[i] ?? products[0]!;
   const ref = useRef<HTMLElement>(null);
@@ -224,7 +227,7 @@ function Hero({ onAdd }: { onAdd: () => void }) {
             </motion.div>
           </AnimatePresence>
           <Magnet strength={0.35}>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={onAdd} className="btn-sweep group inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-primary px-7 text-sm font-semibold text-primary-foreground transition-colors duration-300 hover:text-accent-foreground">
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => onAdd(p)} className="btn-sweep group inline-flex min-h-12 cursor-pointer items-center gap-2 rounded-full bg-primary px-7 text-sm font-semibold text-primary-foreground transition-colors duration-300 hover:text-accent-foreground">
               Add to bag <Plus className="h-4 w-4 transition duration-300 group-hover:rotate-90" />
             </motion.button>
           </Magnet>
@@ -285,7 +288,7 @@ function Marquee() {
   );
 }
 
-function ProductCard({ p, i, onAdd }: { p: P; i: number; onAdd: () => void }) {
+function ProductCard({ p, i, onAdd }: { p: P; i: number; onAdd: (p: P) => void }) {
   const [added, setAdded] = useState(false);
   useEffect(() => {
     if (!added) return;
@@ -306,7 +309,7 @@ function ProductCard({ p, i, onAdd }: { p: P; i: number; onAdd: () => void }) {
       <Magnet className="mt-3 flex" strength={0.15}>
       <motion.button
         whileTap={{ scale: 0.97 }}
-        onClick={() => { onAdd(); setAdded(true); }}
+        onClick={() => { onAdd(p); setAdded(true); }}
         aria-label={`Add ${p.name} to bag`}
         className={`btn-sweep flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full border text-sm font-semibold transition-colors duration-300 [--btn-sweep:var(--primary)] ${added ? "border-primary bg-primary text-primary-foreground" : "border-border hover:border-primary hover:text-primary-foreground"}`}
       >
@@ -321,7 +324,7 @@ function ProductCard({ p, i, onAdd }: { p: P; i: number; onAdd: () => void }) {
   );
 }
 
-function Shop({ onAdd }: { onAdd: () => void }) {
+function Shop({ onAdd }: { onAdd: (p: P) => void }) {
   const [filter, setFilter] = useState("All");
   const list = products.filter((p) => filter === "All" || p.tag === filter);
   return (
@@ -541,6 +544,100 @@ function Footer() {
   );
 }
 
+type Bag = Record<string, number>;
+
+/** Slide-in bag with quantity steppers and a subtotal. Orders are placed by phone. */
+function BagDrawer({ open, bag, onClose, onQty }: { open: boolean; bag: Bag; onClose: () => void; onQty: (name: string, delta: number) => void }) {
+  const lines = products.filter((p) => (bag[p.name] ?? 0) > 0);
+  const subtotal = lines.reduce((t, p) => t + p.price * (bag[p.name] ?? 0), 0);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  const stepper = "flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-border transition-colors duration-200 hover:bg-primary hover:text-primary-foreground";
+  return (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[90]">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" />
+          <motion.aside
+            role="dialog"
+            aria-modal="true"
+            aria-label="Your bag"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", stiffness: 260, damping: 32 }}
+            className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-card shadow-soft"
+          >
+            <div className="flex items-center justify-between border-b border-border px-6 py-5">
+              <h2 className="font-display text-3xl font-bold">Your bag <span className="text-muted-foreground">({lines.reduce((n, p) => n + (bag[p.name] ?? 0), 0)})</span></h2>
+              <button ref={closeRef} onClick={onClose} aria-label="Close bag" className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full transition-colors duration-200 hover:bg-muted"><X /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {lines.length === 0 ? (
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                  <motion.img src={logo} alt="" width={428} height={560} animate={{ y: [0, -8, 0] }} transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }} className="h-24 w-auto opacity-90" />
+                  <p className="font-display text-2xl font-semibold">Your bag is empty</p>
+                  <p className="text-sm text-muted-foreground">Add something comfortable and it will show up here.</p>
+                  <a href="#shop" onClick={onClose} className="mt-2 inline-flex min-h-11 items-center rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground">Browse the shop</a>
+                </motion.div>
+              ) : (
+                <ul className="divide-y divide-border">
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {lines.map((p) => {
+                      const qty = bag[p.name] ?? 0;
+                      return (
+                        <motion.li layout key={p.name} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 60, transition: { duration: 0.2 } }} transition={{ type: "spring", stiffness: 300, damping: 28 }} className="flex gap-4 py-4">
+                          <div className="flex h-24 w-20 shrink-0 items-center justify-center rounded-2xl" style={{ backgroundColor: `color-mix(in oklab, ${p.sw} 25%, var(--card))` }}>
+                            <img src={p.img} alt="" width={800} height={1000} className="h-20 w-auto object-contain" />
+                          </div>
+                          <div className="flex min-w-0 flex-1 flex-col justify-between">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold">{p.name}</p>
+                                <p className="text-sm text-muted-foreground">{p.tag}</p>
+                              </div>
+                              <p className="font-display text-xl font-bold text-primary [font-variant-numeric:lining-nums]">₹{p.price * qty}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => onQty(p.name, -1)} aria-label={qty === 1 ? `Remove ${p.name}` : `Decrease ${p.name}`} className={stepper}>{qty === 1 ? <Trash2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}</button>
+                              <motion.span key={qty} initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-6 text-center font-semibold [font-variant-numeric:tabular-nums]" aria-live="polite">{qty}</motion.span>
+                              <button onClick={() => onQty(p.name, 1)} aria-label={`Increase ${p.name}`} className={stepper}><Plus className="h-4 w-4" /></button>
+                            </div>
+                          </div>
+                        </motion.li>
+                      );
+                    })}
+                  </AnimatePresence>
+                </ul>
+              )}
+            </div>
+
+            {lines.length > 0 && (
+              <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="border-t border-border px-6 py-5">
+                <div className="flex items-baseline justify-between">
+                  <p className="text-sm text-muted-foreground">Subtotal</p>
+                  <motion.p key={subtotal} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-display text-3xl font-bold [font-variant-numeric:lining-nums]">₹{subtotal}</motion.p>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Order by phone. UPI, cards and COD accepted.</p>
+                <Magnet className="mt-4 flex" strength={0.15}>
+                  <a href={TEL} className="btn-sweep flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-colors duration-300 hover:text-accent-foreground"><Phone className="h-4 w-4" /> Call to order · {PHONE}</a>
+                </Magnet>
+              </motion.div>
+            )}
+          </motion.aside>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 const LOADER_MIN_MS = 2200;
 
 /** Full-screen intro: the logo pops in inside a drawing ring, then the screen wipes upward. */
@@ -578,8 +675,17 @@ function Loader() {
 }
 
 function Index() {
-  const [cart, setCart] = useState(0);
-  const add = () => setCart((c) => c + 1);
+  const [bag, setBag] = useState<Bag>({});
+  const [bagOpen, setBagOpen] = useState(false);
+  const cart = Object.values(bag).reduce((n, q) => n + q, 0);
+  const add = (p: P) => setBag((b) => ({ ...b, [p.name]: (b[p.name] ?? 0) + 1 }));
+  const changeQty = (name: string, delta: number) =>
+    setBag((b) => {
+      const q = (b[name] ?? 0) + delta;
+      const { [name]: _drop, ...rest } = b;
+      return q > 0 ? { ...b, [name]: q } : rest;
+    });
+  const closeBag = useCallback(() => setBagOpen(false), []);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let live = true;
@@ -592,14 +698,15 @@ function Index() {
     return () => { live = false; };
   }, []);
   useEffect(() => {
-    document.body.style.overflow = loading ? "hidden" : "";
+    document.body.style.overflow = loading || bagOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [loading]);
+  }, [loading, bagOpen]);
   return (
     <MotionConfig reducedMotion="user">
       <AnimatePresence>{loading && <Loader key="loader" />}</AnimatePresence>
       <ScrollProgress />
-      <Header cart={cart} />
+      <Header cart={cart} onOpenBag={() => setBagOpen(true)} />
+      <BagDrawer open={bagOpen} bag={bag} onClose={closeBag} onQty={changeQty} />
       <main className="overflow-x-hidden">
         <Hero onAdd={add} />
         <Marquee />
