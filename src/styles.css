@@ -171,3 +171,26 @@ html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
   html { scroll-behavior: auto; }
   .marquee { animation: none; }
 }
+
+@utility no-scrollbar { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
+
+/* Button hover: a fill sweeps up from the bottom edge. Set --btn-sweep to change its colour. */
+@utility btn-sweep {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--btn-sweep, var(--accent));
+    transform: translateY(101%);
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  &:hover::before,
+  &:focus-visible::before {
+    transform: translateY(0);
+  }
+}
